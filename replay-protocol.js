@@ -2,7 +2,6 @@ var transDuplex = require('duplex-transform')
 var msgproto = require('msgproto')
 var extend = require('xtend')
 var crypto = require('crypto')
-var bufeq = require('buffer-equal')
 var Frame = require('./frame')
 var NotNetFrameErr = new Error('msg not a NetworkFrame')
 

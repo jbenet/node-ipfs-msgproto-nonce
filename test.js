@@ -1,6 +1,5 @@
 var test = require('tape')
 var map = require('lodash.map')
-var bufeq = require('buffer-equal')
 var multiDgrams = require('multi-dgram-stream')
 var msgproto = require('msgproto')
 var mpNonce = require('./')
