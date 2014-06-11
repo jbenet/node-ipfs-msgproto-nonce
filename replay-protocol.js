@@ -4,7 +4,7 @@ var extend = require('xtend')
 var crypto = require('crypto')
 var bufeq = require('buffer-equal')
 var Frame = require('./frame')
-var err = require('./errors')
+var NotNetFrameErr = new Error('msg not a NetworkFrame')
 
 module.exports = ReplayProtocol
 
@@ -33,7 +33,7 @@ function ReplayProtocol(stream, opts) {
       msg = Frame(randomNonce(), msg, opts.payloadType)
     }
     else if (!(msg instanceof Frame)) {
-      this.emit('error', {error: err.NotNonceFrameErr, message: msg})
+      this.emit('error', {error: NotNonceFrameErr, message: msg})
       return next()
     }
     else if (!msg.nonce) {
@@ -48,7 +48,7 @@ function ReplayProtocol(stream, opts) {
 
     // if not NonceFrame, bail
     if (!(msg instanceof Frame)) {
-      this.emit('replay-error', {error: err.NotNonceFrameErr, message: msg})
+      this.emit('replay-error', {error: NotNonceFrameErr, message: msg})
       return next()
     }
 
