@@ -1,0 +1,7 @@
+// A Nonce frame. Associates a nonce to a payload.
+// This is useful to identify request/response pairs.
+// And to prevent replay attacks.
+message NonceFrame {
+  optional bytes nonce = 1;
+  optional bytes payload = 2; // a PayloadFrame
+}

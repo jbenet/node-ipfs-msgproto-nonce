@@ -1,0 +1,35 @@
+{
+  "name": "ipfs-msgproto-nonce",
+  "version": "0.1.0",
+  "description": "msgproto nonce",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ipfs",
+    "msgproto",
+    "nonce"
+  ],
+  "author": "Juan Benet <juan@benet.ai> (http://juan.benet.ai/)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jbenet/node-ipfs-msgproto-nonce.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jbenet/node-ipfs-msgproto-nonce/issues"
+  },
+  "homepage": "https://github.com/jbenet/node-ipfs-msgproto-nonce",
+  "dependencies": {
+    "buffer-equal": "0.0.1",
+    "duplex-transform": "^0.1.3",
+    "msgproto": "^0.1.4",
+    "xtend": "^3.0.0"
+  },
+  "devDependencies": {
+    "lodash.map": "^2.4.1",
+    "multi-dgram-stream": "^0.1.0",
+    "tape": "^2.13.2"
+  }
+}
