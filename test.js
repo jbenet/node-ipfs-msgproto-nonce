@@ -12,11 +12,13 @@ function setupReplayStreams(addrs) {
 
   return map(addrs, function (addr) {
     var wire = multiDgrams(addr, addrs)
-    wire = msgproto.WireProtocol(mpNonce.Frame, wire)
     wire = duplicate(wire) // duplicates all messages. both outgoing + incoming.
-    wire = mpNonce.ReplayProtocol(wire)
-    wire.addr = addr
-    return wire
+
+    // wire things up
+    var proto = mpNonce.ReplayProtocol()
+    wire.pipe(proto.frames).pipe(wire)
+    proto.addr = addr
+    return proto
   })
 }
 
@@ -36,8 +38,9 @@ test('test replay', function(t) {
 
     if (Object.keys(sent).length == 0) { // all done
       map(streams, function(s) {
-        s.write(null)
-        s.middle.end() // why doesn't s.end() work!?
+        s.payloads.write(null)
+        s.frames.write(null)
+        s.payloads.end() // why doesn't s.end() work!?
       })
       t.ok(true, 'should be done')
     }
@@ -46,22 +49,19 @@ test('test replay', function(t) {
   var streams = setupReplayStreams([1234, 2345, 3456])
   map(streams, function(s) {
     recv[s.addr] = {}
-    s.on('data', function(msg) {
+    s.payloads.on('data', function(msg) {
       t.ok(sent[msg], 'should have sent it')
       t.ok(!recv[s.addr][msg], 'should NOT have seen it before')
       recv[s.addr][msg] = 1
       received(msg, s)
     })
 
-    s.incoming.on('filtered-incoming', function(msg) {
+    s.filtered.on('data', function(msg) {
       msg = msg.payload
       t.ok(sent[msg], 'should have sent it (filtered)')
       t.ok(recv[s.addr][msg], 'should have seen it before')
       received(msg, s)
     })
-
-    s.incoming.on('net-error', console.log)
-    s.outgoing.on('net-error', console.log)
   })
 
   for (var i = 0; i < numMessages; i++) {
@@ -69,7 +69,7 @@ test('test replay', function(t) {
     var sender = streams[(i + 1) % streams.length]
     payload._received = 0
     sent[payload] = payload
-    sender.write(payload)
+    sender.payloads.write(payload)
     console.log('sent: ' + payload)
   }
 })

@@ -1,4 +1,7 @@
-var transDuplex = require('duplex-transform')
+var segment = require('pipe-segment')
+var filterSegment = require('pipe-segment-filter')
+var duplexer2 = require('duplexer2.jbenet')
+var through2 = require('through2')
 var msgproto = require('msgproto')
 var extend = require('xtend')
 var crypto = require('crypto')
@@ -8,42 +11,46 @@ var NotNetFrameErr = new Error('msg not a NetworkFrame')
 module.exports = ReplayProtocol
 
 
-// replay-protocol wraps a duplex packet stream
-// with replay attack prevention nonces:
+// replay-protocol
 // - outgoing packets get a random nonce
 // - incoming packet nonces may only be used once
-
-function ReplayProtocol(stream, opts) {
+//   ----------- wrap ------- encode --->
+//   <---- unwrap -- check -- decode ----
+function ReplayProtocol(opts) {
   opts = extend(ReplayProtocol.defaults, opts || {})
 
   var noncesSeen = {} // this should be bounded with a fixed size cache
-  var stream = transDuplex.obj(outgoing, stream, incoming)
-  stream.opts = opts
-  stream.noncesSeen = noncesSeen
-  return stream
+
+  var wire = msgproto.WireProtocol(Frame)
+  var wraps = through2.obj(wrap)
+  var unwraps = through2.obj(unwrap)
+  var checks = filterSegment(checkNonce)
+
+  // wire up the pipes
+  wraps.pipe(wire.messages).pipe(checks.input)
+  checks.output.pipe(unwraps)
+
+  var seg = segment({
+    wire: wire, // expose wire, for packing errors
+    frames: wire.buffers,
+    filtered: checks.filtered,
+    payloads: duplexer2({objectMode: true}, wraps, unwraps),
+  })
+  seg.opts = opts
+  seg.noncesSeen = noncesSeen
+  return seg
 
   function randomNonce() {
     return crypto.randomBytes(opts.nonceSize) // handle callback err?
   }
 
-  function outgoing(msg, enc, next) {
-
-    if (opts.wrap) {
-      msg = Frame(randomNonce(), msg, opts.payloadType)
-    }
-    else if (!(msg instanceof Frame)) {
-      this.emit('error', {error: NotNonceFrameErr, message: msg})
-      return next()
-    }
-    else if (!msg.nonce) {
-      msg.nonce = randomNonce()
-    }
-
+  function wrap(msg, enc, next) {
+    msg = Frame(randomNonce(), msg, opts.payloadType)
     this.push(msg)
     next()
   }
 
-  function incoming(msg, enc, next) {
+  function unwrap(msg, enc, next) {
 
     // if not NonceFrame, bail
     if (!(msg instanceof Frame)) {
@@ -58,24 +65,19 @@ function ReplayProtocol(stream, opts) {
       return next()
     }
 
-    // if filtering, check addrs
-    if (opts.filterIncoming && noncesSeen[msg.nonce]) {
-      this.emit('filtered-incoming', msg)
-      return next()
-    }
-
     // ok seems legit
     noncesSeen[msg.nonce] = true
-    if (opts.unwrap)
-      msg = msg.getDecodedPayload()
+    msg = msg.getDecodedPayload()
     this.push(msg)
     next()
+  }
+
+  function checkNonce(msg) {
+    return !noncesSeen[msg.nonce]
   }
 }
 
 ReplayProtocol.defaults = {
-  wrap: true,
-  unwrap: true,
   nonceSize: 8, // 64bit
   filterIncoming: true,
 }
